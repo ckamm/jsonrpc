@@ -15,7 +15,7 @@ use crate::calls::{
 	RpcNotificationSimple,
 };
 use crate::middleware::{self, Middleware};
-use crate::types::{Call, Request, WrapOutput, WrapResponse};
+use crate::types::{Call, Request, WrapOutput, WrapResponse, SerializeToJsonResponse};
 use crate::types::{Error, ErrorCode, Version};
 
 /// A type representing middleware or RPC response before serialization.
@@ -150,7 +150,7 @@ impl<T: Metadata, S: Middleware<T>> MetaIoHandler<T, S> {
 	pub fn add_sync_method<F, R>(&mut self, name: &str, method: F)
 	where
 		F: RpcMethodSync<R>,
-		R: Serialize + Send + 'static,
+		R: SerializeToJsonResponse + Send + 'static,
 	{
 		self.add_method(name, move |params| method.call(params))
 	}
@@ -159,7 +159,7 @@ impl<T: Metadata, S: Middleware<T>> MetaIoHandler<T, S> {
 	pub fn add_method<F, R>(&mut self, name: &str, method: F)
 	where
 		F: RpcMethodSimple<R>,
-		R: Serialize + Send + 'static,
+		R: SerializeToJsonResponse + Send + 'static,
 	{
 		self.add_method_with_meta(name, move |params, _meta| method.call(params))
 	}
@@ -176,7 +176,7 @@ impl<T: Metadata, S: Middleware<T>> MetaIoHandler<T, S> {
 	pub fn add_method_with_meta<F, R>(&mut self, name: &str, method: F)
 	where
 		F: RpcMethod<T, R>,
-		R: Serialize + Send + 'static,
+		R: SerializeToJsonResponse + Send + 'static,
 	{
 		self.methods
 			.insert(name.into(), RemoteProcedure::Method(rpc_wrap(method)));

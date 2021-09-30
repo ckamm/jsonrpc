@@ -114,6 +114,20 @@ impl From<Success> for Response {
 	}
 }
 
+/// Test trait
+pub trait SerializeToJsonResponse {
+	/// serialize
+	fn serialize(&self, id: Id, jsonrpc: Option<Version>) -> String;
+}
+
+impl<T: Serialize> SerializeToJsonResponse for T {
+	fn serialize(&self, id: Id, jsonrpc: Option<Version>) -> String {
+		serde_json::to_string(&Success { jsonrpc, result: self, id })
+			.expect("Expected always-serializable type; qed")
+	}
+}
+
+
 /// Represents output - failure or success
 #[derive(Debug, PartialEq, Clone)]
 pub struct WrapOutput {
@@ -125,12 +139,11 @@ impl WrapOutput {
 	/// Creates new output given `Result`, `Id` and `Version`.
 	pub fn from<T>(result: CoreResult<T>, id: Id, jsonrpc: Option<Version>) -> Self
 	where
-		T: Serialize,
+		T: SerializeToJsonResponse,
 	{
 		match result {
 			Ok(result) => {
-				let response = serde_json::to_string(&Success { jsonrpc, result, id })
-					.expect("Expected always-serializable type; qed");
+				let response = SerializeToJsonResponse::serialize(&result, id, jsonrpc);
 				WrapOutput { response }
 			}
 			Err(error) => Self::from_error(error, id, jsonrpc),

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::core::futures::Future;
-use crate::core::{self, Metadata, Params, RemoteProcedure, RpcMethod, Value};
+use crate::core::{self, Metadata, Params, RemoteProcedure, RpcMethod, Value, SerializeToJsonResponse};
 use crate::handler::{SubscribeRpcMethod, UnsubscribeRpcMethod};
 use crate::subscription::{new_subscription, Subscriber};
 use crate::types::{PubSubMetadata, SubscriptionId};
@@ -104,7 +104,7 @@ where
 		F: Fn(&T, Params) -> I,
 		I: Future<Output = core::Result<R>> + Send + 'static,
 		F: Send + Sync + 'static,
-		R: Serialize + Send + 'static,
+		R: SerializeToJsonResponse + Send + 'static,
 	{
 		self.inner.add_method(name, method)
 	}
@@ -115,7 +115,7 @@ where
 		F: Fn(&T, Params, M) -> I,
 		I: Future<Output = core::Result<R>> + Send + 'static,
 		F: Send + Sync + 'static,
-		R: Serialize + Send + 'static,
+		R: SerializeToJsonResponse + Send + 'static,
 	{
 		self.inner.add_method_with_meta(name, method)
 	}

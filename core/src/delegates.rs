@@ -6,7 +6,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use crate::calls::{rpc_wrap, Metadata, RemoteProcedure, RpcMethod, RpcNotification};
-use crate::types::{Error, Params};
+use crate::types::{Error, Params, SerializeToJsonResponse};
 use crate::BoxFuture;
 
 struct DelegateAsyncMethod<T, F> {
@@ -118,7 +118,7 @@ where
 		F: Fn(&T, Params) -> I,
 		I: Future<Output = Result<R, Error>> + Send + 'static,
 		F: Send + Sync + 'static,
-		R: Serialize + Send + 'static,
+		R: SerializeToJsonResponse + Send + 'static,
 	{
 		self.methods.insert(
 			name.into(),
@@ -135,7 +135,7 @@ where
 		F: Fn(&T, Params, M) -> I,
 		I: Future<Output = Result<R, Error>> + Send + 'static,
 		F: Send + Sync + 'static,
-		R: Serialize + Send + 'static,
+		R: SerializeToJsonResponse + Send + 'static,
 	{
 		self.methods.insert(
 			name.into(),

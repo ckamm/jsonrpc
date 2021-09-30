@@ -1,4 +1,4 @@
-use crate::types::{Error, Id, Params, Value, Version, WrapOutput};
+use crate::types::{Error, Id, Params, Value, Version, WrapOutput, SerializeToJsonResponse};
 use crate::BoxFuture;
 use futures_util::{self, future, FutureExt};
 use serde::Serialize;
@@ -67,7 +67,7 @@ pub trait RpcMethodWrapped<T: Metadata>: Send + Sync + 'static {
 	fn call(&self, params: Params, meta: T, jsonrpc: Option<Version>, id: Id) -> BoxFuture<Option<WrapOutput>>;
 }
 
-pub fn rpc_wrap<T: Metadata, R: Serialize + Send + 'static, F: RpcMethod<T, R>>(f: F) -> Arc<dyn RpcMethodWrapped<T>> {
+pub fn rpc_wrap<T: Metadata, R: SerializeToJsonResponse + Send + 'static, F: RpcMethod<T, R>>(f: F) -> Arc<dyn RpcMethodWrapped<T>> {
 	Arc::new(move |params: Params, meta: T, jsonrpc: Option<Version>, id: Id| {
 		let result = f.call(params, meta);
 		result.then(move |r| future::ready(Some(WrapOutput::from(r, id, jsonrpc))))
