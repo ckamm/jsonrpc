@@ -6,21 +6,31 @@ use super::RequestBuilder;
 use crate::{RpcChannel, RpcError, RpcMessage, RpcResult};
 use futures::{future, Future, FutureExt, StreamExt, TryFutureExt};
 use hyper::{http, Client, Request, Uri};
+use flate2::read::GzDecoder;
+use std::io::Read;
+
+/// Create a HTTP Client
+pub async fn connect_with_options<TClient>(url: &str, allow_gzip: bool) -> RpcResult<TClient>
+where
+	TClient: From<RpcChannel>,
+{
+	let url: Uri = url.parse().map_err(|e| RpcError::Other(Box::new(e)))?;
+
+	let (client_api, client_worker) = do_connect(url, allow_gzip).await;
+	tokio::spawn(client_worker);
+
+	Ok(TClient::from(client_api))
+}
 
 /// Create a HTTP Client
 pub async fn connect<TClient>(url: &str) -> RpcResult<TClient>
 where
 	TClient: From<RpcChannel>,
 {
-	let url: Uri = url.parse().map_err(|e| RpcError::Other(Box::new(e)))?;
-
-	let (client_api, client_worker) = do_connect(url).await;
-	tokio::spawn(client_worker);
-
-	Ok(TClient::from(client_api))
+	connect_with_options(url, false).await
 }
 
-async fn do_connect(url: Uri) -> (RpcChannel, impl Future<Output = ()>) {
+async fn do_connect(url: Uri, allow_gzip: bool) -> (RpcChannel, impl Future<Output = ()>) {
 	let max_parallel = 8;
 
 	#[cfg(feature = "tls")]
@@ -59,6 +69,10 @@ async fn do_connect(url: Uri) -> (RpcChannel, impl Future<Output = ()>) {
 					http::header::ACCEPT,
 					http::header::HeaderValue::from_static("application/json"),
 				)
+				.header(
+					http::header::ACCEPT_ENCODING,
+					http::header::HeaderValue::from_static(if allow_gzip { "gzip" } else { "identity" }),
+				)
 				.body(request.into())
 				.expect("Uri and request headers are valid; qed");
 
@@ -78,9 +92,21 @@ async fn do_connect(url: Uri) -> (RpcChannel, impl Future<Output = ()>) {
 				}
 				Err(err) => Err(RpcError::Other(Box::new(err))),
 				Ok(res) => {
+					let is_gzip_response = res.headers().get(http::header::CONTENT_ENCODING).unwrap_or(&http::header::HeaderValue::from_static("identity")) == "gzip";
 					hyper::body::to_bytes(res.into_body())
 						.map_err(|e| RpcError::ParseError(e.to_string(), Box::new(e)))
 						.await
+						.and_then(|bytes| {
+							if is_gzip_response {
+								let mut decoder = GzDecoder::new(bytes.as_ref())
+									.map_err(|e| RpcError::ParseError(e.to_string(), Box::new(e)))?;
+								let mut buf = String::new();
+								let _ = decoder.read_to_string(&mut buf);
+								Ok(buf.into())
+							} else {
+								Ok(bytes)
+							}
+						})
 				}
 			};
 
