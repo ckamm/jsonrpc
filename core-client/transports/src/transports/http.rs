@@ -27,7 +27,7 @@ pub async fn connect<TClient>(url: &str) -> RpcResult<TClient>
 where
 	TClient: From<RpcChannel>,
 {
-	connect_with_options(url, false).await
+	connect_with_options(url, true).await
 }
 
 async fn do_connect(url: Uri, allow_gzip: bool) -> (RpcChannel, impl Future<Output = ()>) {
